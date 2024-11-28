@@ -40,8 +40,8 @@ func (d *decodeState) storeDBRef(v reflect.Value) {
 	}
 
 	args := d.ctorInterface()
-	if len(args) != 2 {
-		d.error(fmt.Errorf("expected 2 arguments to DBRef constructor, but %v received", len(args)))
+	if len(args) != 2 && len(args) != 3 {
+		d.error(fmt.Errorf("expected 2 or 3 arguments to DBRef constructor, but %v received", len(args)))
 	}
 	switch kind := v.Kind(); kind {
 	case reflect.Interface:
@@ -50,7 +50,16 @@ func (d *decodeState) storeDBRef(v reflect.Value) {
 			d.error(fmt.Errorf("expected first argument to DBRef to be of type string"))
 		}
 		arg1 := args[1]
-		v.Set(reflect.ValueOf(DBRef{arg0, arg1, ""}))
+		if len(args) == 2 {
+			v.Set(reflect.ValueOf(DBRef{arg0, arg1, ""}))
+		}
+		if len(args) == 3 {
+			arg2, ok := args[2].(string)
+			if !ok {
+				d.error(fmt.Errorf("expected third argument to DBRef to be of type string"))
+			}
+			v.Set(reflect.ValueOf(DBRef{arg0, arg1, arg2}))
+		}
 	default:
 		d.error(fmt.Errorf("cannot store %v value into %v type", dbRefType, kind))
 	}

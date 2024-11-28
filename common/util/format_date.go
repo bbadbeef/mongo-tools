@@ -32,5 +32,5 @@ func FormatDate(v string) (interface{}, error) {
 			return date, nil
 		}
 	}
-	return date, err
+	return v, nil
 }

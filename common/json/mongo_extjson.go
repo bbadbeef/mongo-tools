@@ -286,6 +286,8 @@ func (d *decodeState) storeExtendedLiteral(item []byte, v reflect.Value, fromQuo
 			d.storeNumberInt(v)
 		case 'L': // NumberLong
 			d.storeNumberLong(v)
+		case 'D': // NumberDecimal
+			d.storeNumberDecimal(v)
 		}
 
 	case 'R': // RegExp constructor
@@ -367,6 +369,8 @@ func (d *decodeState) getExtendedLiteral(item []byte) (interface{}, bool) {
 			return d.getNumberInt(), true
 		case 'L': // NumberLong
 			return d.getNumberLong(), true
+		case 'D': // NumberDecimal
+			return d.getNumberDecimal(), true
 		}
 
 	case 'R': // RegExp constructor

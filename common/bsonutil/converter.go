@@ -9,6 +9,7 @@ package bsonutil
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mongodb/mongo-tools/common/json"
@@ -110,6 +111,21 @@ func ConvertLegacyExtJSONValueToBSON(x interface{}) (interface{}, error) {
 
 	case json.Undefined: // undefined
 		return primitive.Undefined{}, nil
+
+	case json.DBRef:
+		id, ok := v.Id.(json.ObjectId)
+		if !ok {
+			return nil, fmt.Errorf("json.DBRef.Id not json.ObjectId type")
+		}
+		iid, _ := primitive.ObjectIDFromHex(strings.TrimRight(strings.TrimLeft(id.String(), "ObjectId("), ")"))
+		res := map[string]interface{}{
+			"$id":  iid,
+			"$ref": v.Collection,
+		}
+		if v.Database != "" {
+			res["$db"] = v.Database
+		}
+		return res, nil
 
 	default:
 		return nil, fmt.Errorf("conversion of JSON value '%v' of type '%T' not supported", v, v)

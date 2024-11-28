@@ -8,6 +8,7 @@ package json
 
 import (
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"reflect"
 )
 
@@ -31,6 +32,10 @@ func stateUpperNumber(s *scanner, c int) int {
 	}
 	if c == 'L' {
 		s.step = generateState("NumberLong", []byte("ong"), stateConstructor)
+		return scanContinue
+	}
+	if c == 'D' {
+		s.step = generateState("NumberDecimal", []byte("ecimal"), stateConstructor)
 		return scanContinue
 	}
 	return s.error(c, "in literal NumberInt or NumberLong (expecting 'I' or 'L')")
@@ -151,4 +156,59 @@ func (d *decodeState) getNumberLong() interface{} {
 		)
 	}
 	return NumberLong(arg0)
+}
+
+// Decodes a NumberInt literal stored in the underlying byte data into v.
+func (d *decodeState) storeNumberDecimal(v reflect.Value) {
+	op := d.scanWhile(scanSkipSpace)
+	if op != scanBeginCtor {
+		d.error(fmt.Errorf("expected beginning of constructor"))
+	}
+
+	args, err := d.ctor("string", []reflect.Type{stringType})
+	if err != nil {
+		d.error(err)
+	}
+	switch kind := v.Kind(); kind {
+	case reflect.Interface:
+		vv, _ := primitive.ParseDecimal128(args[0].String())
+		v.Set(reflect.ValueOf(Decimal128{vv}))
+	default:
+		d.error(fmt.Errorf("cannot store %v value into %v type", stringType, kind))
+	}
+}
+
+// Returns a NumberInt literal from the underlying byte data.
+func (d *decodeState) getNumberDecimal() interface{} {
+	op := d.scanWhile(scanSkipSpace)
+	if op != scanBeginCtor {
+		d.error(fmt.Errorf("expected beginning of constructor"))
+	}
+
+	// Prevent d.convertNumber() from parsing the argument as a float64.
+	useNumber := d.useNumber
+	d.useNumber = true
+
+	args := d.ctorInterface()
+	if err := ctorNumArgsMismatch("string", 1, len(args)); err != nil {
+		d.error(err)
+	}
+	var number Number
+	switch v := args[0].(type) {
+	case Number:
+		number = v
+	case string:
+		number = Number(v)
+	default:
+		d.error(fmt.Errorf("expected int32 for first argument of NumberInt constructor, got %T (value was %v)", v, v))
+	}
+
+	d.useNumber = useNumber
+	val, err := primitive.ParseDecimal128(number.String())
+	if err != nil {
+		d.error(fmt.Errorf("parse decimal error: %s", err.Error()))
+	}
+	return Decimal128{
+		val,
+	}
 }
