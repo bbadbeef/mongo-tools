@@ -42,19 +42,39 @@ func stateUpperNumber(s *scanner, c int) int {
 }
 
 // Decodes a NumberInt literal stored in the underlying byte data into v.
+// 支持 NumberInt(123) 和 NumberInt("123") 两种格式
 func (d *decodeState) storeNumberInt(v reflect.Value) {
 	op := d.scanWhile(scanSkipSpace)
 	if op != scanBeginCtor {
 		d.error(fmt.Errorf("expected beginning of constructor"))
 	}
 
-	args, err := d.ctor("NumberInt", []reflect.Type{numberIntType})
-	if err != nil {
+	// 使用 ctorInterface 替代 ctor，以支持字符串参数格式 NumberInt("123")
+	useNumber := d.useNumber
+	d.useNumber = true
+
+	args := d.ctorInterface()
+	if err := ctorNumArgsMismatch("NumberInt", 1, len(args)); err != nil {
 		d.error(err)
+	}
+	var number Number
+	switch arg := args[0].(type) {
+	case Number:
+		number = arg
+	case string:
+		number = Number(arg)
+	default:
+		d.error(fmt.Errorf("expected int32 for first argument of NumberInt constructor, got %T (value was %v)", arg, arg))
+	}
+
+	d.useNumber = useNumber
+	arg0, err := number.Int32()
+	if err != nil {
+		d.error(fmt.Errorf("expected int32 for first argument of NumberInt constructor, got %T (value was %v)", number, number))
 	}
 	switch kind := v.Kind(); kind {
 	case reflect.Interface:
-		v.Set(args[0])
+		v.Set(reflect.ValueOf(NumberInt(arg0)))
 	default:
 		d.error(fmt.Errorf("cannot store %v value into %v type", numberIntType, kind))
 	}
@@ -100,19 +120,39 @@ func (d *decodeState) getNumberInt() interface{} {
 }
 
 // Decodes a NumberLong literal stored in the underlying byte data into v.
+// 支持 NumberLong(123) 和 NumberLong("123") 两种格式
 func (d *decodeState) storeNumberLong(v reflect.Value) {
 	op := d.scanWhile(scanSkipSpace)
 	if op != scanBeginCtor {
 		d.error(fmt.Errorf("expected beginning of constructor"))
 	}
 
-	args, err := d.ctor("NumberLong", []reflect.Type{numberLongType})
-	if err != nil {
+	// 使用 ctorInterface 替代 ctor，以支持字符串参数格式 NumberLong("123")
+	useNumber := d.useNumber
+	d.useNumber = true
+
+	args := d.ctorInterface()
+	if err := ctorNumArgsMismatch("NumberLong", 1, len(args)); err != nil {
 		d.error(err)
+	}
+	var number Number
+	switch arg := args[0].(type) {
+	case Number:
+		number = arg
+	case string:
+		number = Number(arg)
+	default:
+		d.error(fmt.Errorf("expected int64 for first argument of NumberLong constructor, got %T (value was %v)", arg, arg))
+	}
+
+	d.useNumber = useNumber
+	arg0, err := number.Int64()
+	if err != nil {
+		d.error(fmt.Errorf("expected int64 for first argument of NumberLong constructor, got %T (value was %v)", number, number))
 	}
 	switch kind := v.Kind(); kind {
 	case reflect.Interface:
-		v.Set(args[0])
+		v.Set(reflect.ValueOf(NumberLong(arg0)))
 	default:
 		d.error(fmt.Errorf("cannot store %v value into %v type", numberLongType, kind))
 	}
